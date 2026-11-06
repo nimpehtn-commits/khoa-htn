@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B3B66">
+<title>Quản lý Khoa Hóa thực nghiệm</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%}
+body{background:#F3F6FA;font-family:"Be Vietnam Pro",system-ui,"Segoe UI",Roboto,Arial,sans-serif;color:#16243A}
+.boot{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0B3B66;color:#fff;padding:24px;box-sizing:border-box;text-align:center}
+.boot img{width:72px;height:72px;border-radius:16px}
+.boot b{font-size:20px}.boot p{margin:0;max-width:460px;line-height:1.5;color:#D5E4F3}.boot p.err{color:#FFD6D1}
+.boot button{border:0;border-radius:8px;padding:9px 18px;font-weight:600;font-size:14px;font-family:inherit;background:#fff;color:#0B3B66;cursor:pointer}
+#htnUpd{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;background:#16243A;color:#fff;border-radius:10px;padding:10px 14px;font:14px/1.4 system-ui,"Segoe UI",sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.25);display:flex;gap:12px;align-items:center}
+#htnUpd button{border:0;border-radius:6px;padding:6px 12px;font-weight:600;cursor:pointer;background:#7CC4F2;color:#0B3B66}
+#htnUpd button.x{background:transparent;color:#fff;padding:6px}
+</style>
+</head>
+<body>
+<div id="root"><div class="boot"><img src="icon-192.png" alt=""><b>Khoa Hóa thực nghiệm</b><p id="bootMsg">Đang mở ứng dụng…</p></div></div>
+<script>
+/* Trang vỏ của bản cài trên máy (cài từ Chrome/Edge).
+   - Giao diện App (CSS + JavaScript) tải từ máy chủ Apps Script (tệp index.html trong thư mục Drive) và lưu trên máy:
+     mở được khi mất mạng; có bản mới thì tự tải ở nền và báo "Tải lại".
+   - Dữ liệu: App gọi máy chủ qua window.HTN_API, lưu bản sao + hàng chờ đồng bộ trên máy (IndexedDB "htn-offline"). */
+(function () {
+  var API = 'https://script.google.com/macros/s/AKfycbz4EdlbukZf2xWoQFGRf_WxM9XS1Vke4Y1icc2B4Wz-PF5-pKXSWqPrN3k5k0ULv-in/exec';
+  window.HTN_API = API;
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+  var dbp = null;
+  function db() {
+    if (!dbp) dbp = new Promise(function (res) {
+      try { var q = indexedDB.open('htn-offline', 1); q.onupgradeneeded = function () { if (!q.result.objectStoreNames.contains('kv')) q.result.createObjectStore('kv'); }; q.onsuccess = function () { res(q.result); }; q.onerror = function () { res(null); }; }
+      catch (e) { res(null); }
+    });
+    return dbp;
+  }
+  function get(k) { return db().then(function (d) { return d ? new Promise(function (res) { try { var r = d.transaction('kv').objectStore('kv').get(k); r.onsuccess = function () { res(r.result || null); }; r.onerror = function () { res(null); }; } catch (e) { res(null); } }) : null; }); }
+  function put(k, v) { return db().then(function (d) { return d ? new Promise(function (res) { try { var tx = d.transaction('kv', 'readwrite'); tx.objectStore('kv').put(v, k); tx.oncomplete = function () { res(true); }; tx.onerror = function () { res(false); }; } catch (e) { res(false); } }) : false; }); }
+  function msg(t, err, retry) {
+    var p = document.getElementById('bootMsg'); if (!p) return;
+    p.className = err ? 'err' : ''; p.textContent = t;
+    if (retry && !document.getElementById('bootRetry')) { var b = document.createElement('button'); b.id = 'bootRetry'; b.textContent = 'Thử lại'; b.onclick = function () { location.reload(); }; p.parentNode.appendChild(b); }
+  }
+  function fetchApp(v) {
+    var ctl = window.AbortController ? new AbortController() : null, t = setTimeout(function () { ctl && ctl.abort(); }, 90000);
+    return fetch(API, {method: 'POST', body: JSON.stringify({a: 'app', v: v || ''}), headers: {'Content-Type': 'text/plain;charset=utf-8'}, redirect: 'follow', cache: 'no-store', signal: ctl ? ctl.signal : undefined})
+      .then(function (r) { return r.text(); })
+      .then(function (txt) { clearTimeout(t); var r; try { r = JSON.parse(txt); } catch (e) { throw new Error('máy chủ Google lỗi tạm thời'); } if (!r.ok) throw new Error(r.err || 'lỗi máy chủ'); return r; },
+            function (e) { clearTimeout(t); throw e; });
+  }
+  function boot(b) {
+    window.HTN_APP_VER = b.v;
+    var st = document.createElement('style'); st.textContent = b.css; document.head.appendChild(st);
+    document.getElementById('root').innerHTML = '';
+    var s = document.createElement('script'); s.text = b.js; document.body.appendChild(s);
+  }
+  function banner() {
+    if (document.getElementById('htnUpd')) return;
+    var d = document.createElement('div'); d.id = 'htnUpd';
+    d.innerHTML = '<span>Đã có phiên bản mới của App.</span><button type="button">Tải lại</button><button type="button" class="x" aria-label="Để sau">✕</button>';
+    d.querySelector('button').onclick = function () { location.reload(); };
+    d.querySelector('.x').onclick = function () { d.remove(); };
+    document.body.appendChild(d);
+  }
+  function checkUpdate(v) {
+    if (navigator.onLine === false) return;
+    fetchApp(v).then(function (r) { if (r.same || !r.js || r.v === v) return; return put('app', {v: r.v, css: r.css, js: r.js, at: Date.now()}).then(banner); }).catch(function () {});
+  }
+  get('app').then(function (b) {
+    if (b && b.js) {
+      boot(b);
+      setTimeout(function () { checkUpdate(b.v); }, 4000);
+      setInterval(function () { if (!document.hidden) checkUpdate(window.HTN_APP_VER); }, 3 * 3600e3);
+      return;
+    }
+    var tries = 0;
+    (function go() {
+      if (navigator.onLine === false) return msg('Máy đang mất mạng. Lần đầu mở App trên máy này cần có mạng để tải ứng dụng và dữ liệu về; sau đó dùng được cả khi mất mạng.', true, true);
+      msg(tries ? 'Máy chủ Google phản hồi chậm, đang thử lại (' + tries + '/4)…' : 'Đang tải ứng dụng lần đầu (khoảng 1 MB)…');
+      fetchApp('').then(function (r) {
+        var nb = {v: r.v, css: r.css, js: r.js, at: Date.now()};
+        put('app', nb).then(function () { boot(nb); });
+      }).catch(function (e) {
+        tries++;
+        if (tries < 5) setTimeout(go, 1500 * tries);
+        else msg('Không tải được ứng dụng (' + (e && e.message || e) + '). Kiểm tra mạng rồi bấm Thử lại.', true, true);
+      });
+    })();
+  });
+  window.addEventListener('online', function () { if (!window.HTN_APP_VER) location.reload(); });
+})();
+</script>
+</body>
+</html>

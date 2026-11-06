@@ -1,0 +1,16 @@
+{
+  "name": "Quản lý Khoa Hóa thực nghiệm",
+  "short_name": "Khoa HTN",
+  "description": "Quản lý khảo nghiệm, kiểm nghiệm, hóa chất – Khoa Hóa thực nghiệm, Viện Sốt rét – Ký sinh trùng – Côn trùng Trung ương",
+  "lang": "vi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0B3B66",
+  "theme_color": "#0B3B66",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
